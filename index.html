@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        #cy {
+            /* width: 300px;
+            height: 300px; */
+            /* display: block; */
+        }
+    </style>
+</head>
+<body>
+    <div style="width:15vw; height:50vh; float:right;">
+        <p>Adjacency matrix:</p>
+        <textarea id="ta" style="width:100%; height:100%; float:right"></textarea>
+        <p>Click outside the textarea to apply changes.</p>
+        <p>Click the node to perform Depth-first search.</p>
+    </div>
+    <div id="cy" style="position:absolute;top:0px;left:0px;bottom:0px;width:84vw"></div>
+    <!-- <div id="cy" style="width:900px;height:900px;background-color: bisque;"></div> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.19.0/cytoscape.min.js"></script>
+    <!-- <script src="https://unpkg.com/webcola/WebCola/cola.min.js"></script> -->
+    <script>
+        window.onload = () => {
+            document.getElementById('ta').value = `
+1
+00
+010
+0010
+00001
+000000
+0000001
+00000000
+000100001
+0000000010
+00000000001
+000000000000
+0001000100001
+00000000001000
+010000000000010
+0000000000100010
+00000000000010000
+000000000000100000
+0000000000000000001
+00000000000000000010
+000000000000001000000
+1000000000000000000000
+00000000000000000000100
+001000000000000010100000`;
+            e({target: document.getElementById('ta')})
+        }
+        // import cytoscape from 'cytoscape';
+        // import cola from 'cytoscape-cola';
+        // cytoscape.use(cola)
+        let tablica = [
+            [0, 1, 1, 0],
+            [1, 0, 1, 0],
+            [1, 1, 0, 1],
+            [0, 0, 1, 0]
+        ]
+
+        let options = {
+  name: 'breadthfirst',
+
+  fit: true, // whether to fit the viewport to the graph
+  directed: false, // whether the tree is directed downwards (or edges can point in any direction if false)
+  padding: 30, // padding on fit
+  circle: false, // put depths in concentric circles if true, put depths top down if false
+  grid: false, // whether to create an even grid into which the DAG is placed (circle:false only)
+  spacingFactor: 0.75, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
+  boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+  avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
+  nodeDimensionsIncludeLabels: false, // Excludes the label when calculating node bounding boxes for the layout algorithm
+  roots: undefined, // the roots of the trees
+  maximal: false, // whether to shift nodes down their natural BFS depths in order to avoid upwards edges (DAGS only)
+  animate: false, // whether to transition the node positions
+  animationDuration: 500, // duration of animation in ms if enabled
+  animationEasing: undefined, // easing of animation if enabled,
+  animateFilter: function ( node, i ){ return true; }, // a function that determines whether the node should be animated.  All nodes animated by default on animate enabled.  Non-animated nodes are positioned immediately when the layout starts
+  ready: undefined, // callback on layoutready
+  stop: undefined, // callback on layoutstop
+  transform: function (node, position ){ return position; } // transform a given node position. Useful for changing flow direction in discrete layouts
+};
+
+        let style = [ // the stylesheet for the graph
+            {
+                selector: 'node, .node_gray',
+                style: {
+                'background-color': '#666',
+                'label': 'data(id)'
+                }
+            },
+            {
+                selector: '.node_blue',
+                style: {
+                'background-color': '#004687',
+                'label': 'data(id)'
+                }
+            },
+            {
+                selector: '.node_green',
+                style: {
+                // 'background-color': '#006400',
+                'background-color': 'orange',
+                'label': 'data(id)'
+                }
+            },
+            {
+                selector: '.node_head',
+                style: {
+                'background-color': '#006400',
+                // 'background-color': 'green',
+                'label': 'data(id)'
+                }
+            },
+
+            {
+                selector: 'edge, .edge_gray',
+                style: {
+                'width': 3,
+                'line-color': '#ccc',
+                'target-arrow-color': '#ccc',
+                'target-arrow-shape': 'none',
+                'curve-style': 'bezier'
+                }
+            },
+            {
+                selector: '.edge_blue',
+                style: {
+                'width': 5,
+                'line-color': '#004792',
+                'target-arrow-color': '#ccc',
+                'target-arrow-shape': 'none',
+                'curve-style': 'bezier'
+                }
+            },
+            {
+                selector: '.edge_green',
+                style: {
+                'width': 3,
+                // 'line-color': '#228B22',
+                'line-color': 'orange',
+                'target-arrow-color': '#ccc',
+                'target-arrow-shape': 'none',
+                'curve-style': 'bezier'
+                }
+            }
+            ]
+        
+        var cy = cytoscape({
+
+            container: document.getElementById('cy'), // container to render in
+
+            // elements: [ // list of graph elements to start with
+            // { // node a
+            //     data: { id: '1' }
+            // },
+            // { // node b
+            //     data: { id: '2' }
+            // },
+            // { // node b
+            //     data: { id: '3' }
+            // },
+            // { // node b
+            //     data: { id: '4' }
+            // },
+            // { // edge ab
+            //     data: { id: 'ab', source: '2', target: '1' }
+            // },
+            // { // edge ab
+            //     data: { id: 'bb', source: '2', target: '3' }
+            // },
+            // { // edge ab
+            //     data: { id: 'bbb', source: '1', target: '4' }
+            // },
+            // { // edge ab
+            //     data: { id: 'abbbb', source: '3', target: '1' }
+            // }
+            // ],
+
+            style: style,
+
+            // layout: {
+            //     name: 'grid',
+            //     rows: 1
+            // }
+            layout: options,
+
+            zoom: 1,
+            pan: {x:0,y:0},
+            // minZoom: 1,
+            // maxZoom: 1,
+            // panningEnabled: false,
+            boxSelectionEnabled: false
+
+
+        });
+
+        // document.addEventListener('click', event => {
+        //     if(event.clientX < window.innerWidth * 0.84) {
+        //         cy.add(
+        //             // {data: {id: 'c'}, position: {x:event.clientX, y:event.clientY}}
+        //             {position: {x:event.clientX, y:event.clientY}}
+        //         )
+        //         // cy.remove(document.getElementById('b'))
+        //         var b = cy.$id('b');
+        //         cy.remove( b );
+        //         cy.style()
+        //             .selector('node')
+        //                 .style({
+        //                 'background-color': 'yellow'
+        //                 })
+
+        //             .update() // indicate the end of your new stylesheet so that it can be updated on elements
+        //         ;
+        //     }
+        // })
+
+        function isNumeric(str) {
+            if (typeof str != "string") return false // we only process strings!  
+            return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
+                    !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+        }
+
+
+        let options4 = {
+  name: 'random',
+
+  fit: true, // whether to fit to viewport
+  padding: 30, // fit padding
+  boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+  animate: false, // whether to transition the node positions
+  animationDuration: 500, // duration of animation in ms if enabled
+  animationEasing: undefined, // easing of animation if enabled
+  animateFilter: function ( node, i ){ return true; }, // a function that determines whether the node should be animated.  All nodes animated by default on animate enabled.  Non-animated nodes are positioned immediately when the layout starts
+  ready: undefined, // callback on layoutready
+  stop: undefined, // callback on layoutstop
+  transform: function (node, position ){ return position; } // transform a given node position. Useful for changing flow direction in discrete layouts 
+};
+// default layout options
+var defaults = {
+    name: 'cola',
+  animate: true, // whether to show the layout as it's running
+  refresh: 1, // number of ticks per frame; higher is faster but more jerky
+  maxSimulationTime: 4000, // max length in ms to run the layout
+  ungrabifyWhileSimulating: false, // so you can't drag nodes during layout
+  fit: true, // on every layout reposition of nodes, fit the viewport
+  padding: 30, // padding around the simulation
+  boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+  nodeDimensionsIncludeLabels: false, // whether labels should be included in determining the space used by a node
+
+  // layout event callbacks
+  ready: function(){}, // on layoutready
+  stop: function(){}, // on layoutstop
+
+  // positioning options
+  randomize: false, // use random node positions at beginning of layout
+  avoidOverlap: true, // if true, prevents overlap of node bounding boxes
+  handleDisconnected: true, // if true, avoids disconnected components from overlapping
+  convergenceThreshold: 0.01, // when the alpha value (system energy) falls below this value, the layout stops
+  nodeSpacing: function( node ){ return 10; }, // extra spacing around nodes
+  flow: undefined, // use DAG/tree flow layout if specified, e.g. { axis: 'y', minSeparation: 30 }
+  alignment: undefined, // relative alignment constraints on nodes, e.g. {vertical: [[{node: node1, offset: 0}, {node: node2, offset: 5}]], horizontal: [[{node: node3}, {node: node4}], [{node: node5}, {node: node6}]]}
+  gapInequalities: undefined, // list of inequality constraints for the gap between the nodes, e.g. [{"axis":"y", "left":node1, "right":node2, "gap":25}]
+
+  // different methods of specifying edge length
+  // each can be a constant numerical value or a function like `function( edge ){ return 2; }`
+  edgeLength: undefined, // sets edge length directly in simulation
+  edgeSymDiffLength: undefined, // symmetric diff edge length in simulation
+  edgeJaccardLength: undefined, // jaccard edge length in simulation
+
+  // iterations of cola algorithm; uses default values on undefined
+  unconstrIter: undefined, // unconstrained initial layout iterations
+  userConstIter: undefined, // initial layout iterations with user-specified constraints
+  allConstIter: undefined, // initial layout iterations with all constraints including non-overlap
+};
+
+        let options3 = {
+  name: 'concentric',
+
+  fit: true, // whether to fit the viewport to the graph
+  padding: 30, // the padding on fit
+  startAngle: 3 / 2 * Math.PI, // where nodes start in radians
+  sweep: undefined, // how many radians should be between the first and last node (defaults to full circle)
+  clockwise: true, // whether the layout should go clockwise (true) or counterclockwise/anticlockwise (false)
+  equidistant: false, // whether levels have an equal radial distance betwen them, may cause bounding box overflow
+  minNodeSpacing: 10, // min spacing between outside of nodes (used for radius adjustment)
+  boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+  avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
+  nodeDimensionsIncludeLabels: false, // Excludes the label when calculating node bounding boxes for the layout algorithm
+  height: undefined, // height of layout area (overrides container height)
+  width: undefined, // width of layout area (overrides container width)
+  spacingFactor: undefined, // Applies a multiplicative factor (>0) to expand or compress the overall area that the nodes take up
+  concentric: function( node ){ // returns numeric value for each node, placing higher nodes in levels towards the centre
+  return node.degree();
+  },
+  levelWidth: function( nodes ){ // the variation of concentric values in each level
+  return nodes.maxDegree() / 4;
+  },
+  animate: false, // whether to transition the node positions
+  animationDuration: 500, // duration of animation in ms if enabled
+  animationEasing: undefined, // easing of animation if enabled
+  animateFilter: function ( node, i ){ return true; }, // a function that determines whether the node should be animated.  All nodes animated by default on animate enabled.  Non-animated nodes are positioned immediately when the layout starts
+  ready: undefined, // callback on layoutready
+  stop: undefined, // callback on layoutstop
+  transform: function (node, position ){ return position; } // transform a given node position. Useful for changing flow direction in discrete layouts
+};
+
+let options2 = {
+  name: 'cose',
+
+  // Called on `layoutready`
+  ready: function(){},
+
+  // Called on `layoutstop`
+  stop: function(){},
+
+  // Whether to animate while running the layout
+  // true : Animate continuously as the layout is running
+  // false : Just show the end result
+  // 'end' : Animate with the end result, from the initial positions to the end positions
+  animate: true,
+
+  // Easing of the animation for animate:'end'
+  animationEasing: undefined,
+
+  // The duration of the animation for animate:'end'
+  animationDuration: undefined,
+
+  // A function that determines whether the node should be animated
+  // All nodes animated by default on animate enabled
+  // Non-animated nodes are positioned immediately when the layout starts
+  animateFilter: function ( node, i ){ return true; },
+
+
+  // The layout animates only after this many milliseconds for animate:true
+  // (prevents flashing on fast runs)
+  animationThreshold: 500,
+
+  // Number of iterations between consecutive screen positions update
+  refresh: 20,
+
+  // Whether to fit the network view after when done
+  fit: true,
+
+  // Padding on fit
+  padding: 30,
+
+  // Constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+  boundingBox: undefined,
+
+  // Excludes the label when calculating node bounding boxes for the layout algorithm
+  nodeDimensionsIncludeLabels: false,
+
+  // Randomize the initial positions of the nodes (true) or use existing positions (false)
+  randomize: false,
+
+  // Extra spacing between components in non-compound graphs
+  componentSpacing: 40,
+
+  // Node repulsion (non overlapping) multiplier
+  nodeRepulsion: function( node ){ return 200000; },
+
+  // Node repulsion (overlapping) multiplier
+  nodeOverlap: 4,
+
+  // Ideal edge (non nested) length
+  idealEdgeLength: function( edge ){ return 64; },
+
+  // Divisor to compute edge forces
+  edgeElasticity: function( edge ){ return 64; },
+
+  // Nesting factor (multiplier) to compute ideal edge length for nested edges
+  nestingFactor: 1.2,
+
+  // Gravity force (constant)
+  gravity: 1,
+
+  // Maximum number of iterations to perform
+  numIter: 1000,
+
+  // Initial temperature (maximum node displacement)
+  initialTemp: 1000,
+
+  // Cooling factor (how the temperature is reduced between consecutive iterations
+  coolingFactor: 0.99,
+
+  // Lower temperature threshold (below this point the layout will end)
+  minTemp: 1.0
+};
+
+
+        var collection = cy.collection();
+
+        // document.getElementById('ta').addEventListener('change', e => {console.log(e); alert(e.target.value)})
+        document.getElementById('ta').addEventListener('change', ev => e(ev))
+        const e = e => {
+            // length = 
+            lines = e.target.value.split('\n')
+            for(let i = 0; i < lines.length; i++) {
+                nl = []
+                for(let letter of lines[i]) {
+                    if(isNumeric(letter)) {
+                        nl.push(parseInt(letter))
+                    }
+                }
+                lines[i] = nl
+            }
+            // console.log(lines)
+            cy.remove(cy.elements('node'))
+
+            for(i = 1; i < lines.length + 1; i++) {
+                cy.add(
+                    // {data: {id: 'c'}, position: {x:event.clientX, y:event.clientY}}
+                    {data: {id: i.toString()}}
+                )
+            }
+
+            try {
+                for(let i = lines.length - 1; i > 0; i--) { // 321
+                    for(let j = 0; j < i; j++) { // 012
+                        if(lines[i][j] == 1) {
+                            cy.add({data: {source: (i+1).toString(), target: (j+1).toString()}})
+                        }
+                    }
+                }
+            } catch(e) {
+                alert('wrong input')
+            }
+            
+            // cy.$('node').classes('class1');
+            // cy.style()
+            //         .selector('node')
+            //             .style({
+            //             'background-color': '#666'
+            //             })
+            // ;
+            cy.nodes().on('click', function(e){
+                var clickedNode = e.target;
+
+                DFS(clickedNode)
+
+                if(false) {
+                    // collection = collection.union(clickedNode);
+                    cy.$(e.target).classes('node_blue')
+                    // cy.$(e.target).neighborhood().nodes().classes('node_blue')
+                    cy.$(e.target).neighborhood().nodes().classes('node_green')
+                    cy.$(e.target).neighborhood().edges().classes('edge_green')
+                    console.log(cy.$(e.target).neighborhood())
+                    // cy.style()
+                    //     .selector(e.target)
+                    //         .style({
+                    //         'background-color': 'brown'
+                    //         })
+
+                    //     // .update() // indicate the end of your new stylesheet so that it can be updated on elements
+                    // ;
+                }
+            });
+
+            let layout = cy.layout(options2)
+            layout.run()
+        }
+
+    let V_1 = []
+    let DFS_node_stack = []
+    let DFS_timeout = undefined
+    let start_node = undefined
+
+    function DFS(node) {
+        halt_and_reset_nodes()
+        V_1 = [node]
+        start_node = node
+        DFS_node_stack = []
+        edge_count = cy.edges().length
+        // tik_tok_tik_tok = Math.floor(5000/edge_count)
+        tik_tok_tik_tok = 500
+        cy.$(node).classes('node_head')
+
+        // for(node of cy.nodes()) {
+        //     console.log(node.id())
+        // }
+        // alert(cy.nodes().includes(node))
+        DFS_timeout = setTimeout(() => DFS_step(node, tik_tok_tik_tok), tik_tok_tik_tok)
+        // cy.elements().edges().classes('edge_blue')
+        // cy.elements().nodes().classes('node_blue')
+    }
+
+    function halt_and_reset_nodes() {
+        clearTimeout(DFS_timeout)
+        cy.nodes().classes('node_gray')
+        cy.edges().classes('edge_gray')
+    }
+
+    function DFS_step(current_node, tik_tok_tik_tok) {
+        for(neighbor of current_node.neighborhood().nodes()) {
+            if(V_1.indexOf(neighbor) == -1) {
+                V_1.push(neighbor)
+                current_node.classes('node_green')
+                current_node.neighborhood().edges(`[source = "${current_node.id()}"]`).edges(`[target = "${neighbor.id()}"]`).classes('edge_green')
+                current_node.neighborhood().edges(`[target = "${current_node.id()}"]`).edges(`[source = "${neighbor.id()}"]`).classes('edge_green')
+                DFS_node_stack.push(current_node)
+                current_node = neighbor
+                current_node.classes('node_head')
+                DFS_timeout = setTimeout(() => DFS_step(current_node, tik_tok_tik_tok), tik_tok_tik_tok)
+                return
+            }
+        }
+        if(current_node == start_node) {
+            current_node.classes('node_head')
+            return
+        }
+        current_node.classes('node_blue')
+        current_node.neighborhood().edges(`[source = "${current_node.id()}"]`).edges(`[target = "${DFS_node_stack[DFS_node_stack.length - 1].id()}"]`).classes('edge_blue')
+        current_node.neighborhood().edges(`[target = "${current_node.id()}"]`).edges(`[source = "${DFS_node_stack[DFS_node_stack.length - 1].id()}"]`).classes('edge_blue')
+        
+        current_node = DFS_node_stack[DFS_node_stack.length - 1]
+        current_node.classes('node_head')
+        DFS_node_stack.pop()
+        DFS_timeout = setTimeout(() => DFS_step(current_node, tik_tok_tik_tok), tik_tok_tik_tok)
+    }
+
+
+        /*
+var cy = cytoscape({
+  style: [
+   {
+    selector: '.myFirstClass',
+    style: {
+    'background-color': 'red',
+    'shape': 'rectangle'
+    ...
+   },
+   {
+    selector: '.mySecondClass',
+    style: {
+    'background-color': 'blue',
+    'shape': 'triangle'
+    ...
+   }
+});
+
+Now when you change the style of a node it will reflect what you set in the stylesheet. So...
+
+cy.$('#nodeA').classes('mySecondClass');, where #nodeA is the id of your node. This will turn your first node into a blue triangle.
+
+Hope that helped.
+        */
+
+    /*
+[0 1 0 1 0 1 ]
+0 1 1 0
+1 0 1 0
+1 1 0 1
+0 0 1 1
+00001
+0001010111
+0001101102010
+011
+0001010101
+010101
+0010010
+01
+111
+011
+1
+1              
+    */
+    </script>
+</body>
+</html>
