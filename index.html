@@ -44,9 +44,6 @@
     <div id="cy" style="position:absolute;top:0px;left:0px;bottom:0px;width:84vw"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.19.0/cytoscape.min.js"></script>
     <script>
-        window.onload = () => {
-            e({target: document.getElementById('ta')})
-        }
         let tablica = [
             [0, 1, 1, 0],
             [1, 0, 1, 0],
@@ -268,6 +265,10 @@ let options2 = {
         current_node.classes('node_head')
         DFS_node_stack.pop()
         DFS_timeout = setTimeout(() => DFS_step(current_node, tik_tok_tik_tok), tik_tok_tik_tok)
+    }
+        
+    window.onload = () => {
+        e({target: document.getElementById('ta')})
     }
     </script>
 </body>
